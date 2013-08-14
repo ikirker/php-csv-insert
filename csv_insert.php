@@ -1,17 +1,37 @@
-// (c) Ian Kirker, 2013
-// Released under the two-clause BSD license, in case it's relevant.
 <?php 
-    $my_db_hostname = "localhost";
-    $my_db_name     = "something";
-    $my_db_username = "something";
-    $my_db_password = "somethingelse"; // I am honestly not sure where/how to specify passwords.
+    // (c) Ian Kirker, 2013
+    // Released under the two-clause BSD license, in case it's relevant.
+    $my_db_hostname = "127.0.0.1";
+    $my_db_name     = "test";
+    $my_db_port     = "3306";
+    $my_db_username = "root";
+    $my_db_password = ""; // I am honestly not sure where/how to specify passwords.
                                        // Putting them here seems like vaguely bad practice.
 
     // These are straight out of the schema.
     $fields_lists = array(
-        "Person" => array("Name", "Colour of hat", "etc"),
-        "Place" => array ("Name", "Location", "etc"),
-        "Thing" => array("Name", "Colour"),
+      "Venue"         => array("VenueID", "VenueName", "Add1", "Add2", "Add3", 
+                               "LocationID", "SeatCap", "VenueTypeID", 
+                               "VenueDescription", "Comments"),
+      "VenueType"     => array("VenueTypeID", "VenueTypeName"),
+      "VenueResource" => array("UID", "VenueID", "SourceID"),
+      "Location"      => array("LocationID", "XCoordinate", "YCoordinate"),
+      "CompanyVenue"  => array("UID", "CompanyID", "VenueID", "RoleDescription", 
+                               "RoleTypeID", "RoleStartDate", "SourceID", 
+                               "SourcePageRed", "Comments"),
+      "Company"       => array("CompanyID", "CompanyName", 
+                               "CompanyDescription", "Comments"),
+      "PersonVenue"   => array("UID", "PersonID", "VenueID", "RoleDescription",
+                               "RoleTypeID", "RoleStartDate", "SourceID", 
+                               "SourcePageRef", "Comments"),
+      "Person"        => array("PersonID", "PSurname", "PMiddleName", "PFname",
+                               "PTitle", "Gender", "DoB", "DoD", "PDescription",
+                               "Comments"),
+      "RoleType"      => array("RoleTypeID", "RoleTypeName"),
+      "Events"        => array("EventID", "VenueID", "EventDate", "EventTypeID",
+                               "EventDescription", "SourceID", "SourcePageRef",
+                               "Comments"),
+      "EventType"     => array("EventTypeID", "EventTypeName"),
     );
     $table_list = array_keys($fields_lists);
     
@@ -114,7 +134,7 @@ HEREDOC;
                     // \PDO::ATTR_ERRMODE enables exceptions for errors.  This is optional but can be handy.
                     // \PDO::ATTR_PERSISTENT disables persistent connections, which can cause concurrency issues in certain cases.  See "Gotchas".
                     // \PDO::MYSQL_ATTR_INIT_COMMAND alerts the connection that we'll be passing UTF-8 data.  This may not be required depending on your configuration, but it'll save you headaches down the road if you're trying to store Unicode strings in your database.  See "Gotchas".
-                    $link = new \PDO(   "mysql:host={$my_db_hostname};dbname={$my_db_name}",
+                    $link = new \PDO(   "mysql:host={$my_db_hostname};por={$my_db_port};dbname={$my_db_name}",
                                         $my_db_username,
                                         $my_db_password, 
                                         array(
@@ -124,15 +144,19 @@ HEREDOC;
                                         )
                                     );
                                     
-                    // I'm not entirely sure the following satisfies the conditions for a prepared statement, but let's give it a shot.
-                    // In particular I'm not sure whether you can bind table and column names.
-                    
+                    // Unfortunately you can't bind table and column names in a prepared statement, so we have
+                    //   to put them in using string manipulation.
+
+                    $table_fields = $fields_lists[$requested_table];
+                    $table_fields_string = implode(',', $table_fields);
+
                     // This just makes an appropriately long number of ? separated by ,
                     $value_placeholders = implode(',', array_fill(0, count($fields_lists[$requested_table]), '?'));
                     
-                    // My danger sense says not to put $requested_table into a string here just as-is.
-                    $statement_string = 'INSERT INTO ? (' . $value_placeholders . 
+                    // My danger sense says not to put $requested_table into a string here just as-is, but oh well.
+                    $statement_string = "INSERT INTO {$requested_table} (" . $table_fields_string . 
                                         ') VALUES ( ' . $value_placeholders . ')';
+                    echo "Debug: \$statement_string: {$statement_string}\n";
                     $db_handle = $link->prepare($statement_string);
                  
                     // PHP bug: if you don't specify PDO::PARAM_INT, PDO may enclose the argument in quotes.  This can mess up some MySQL queries that don't expect integers to be quoted.
@@ -140,12 +164,7 @@ HEREDOC;
                     // If you're not sure whether the value you're passing is an integer, use the is_int() function.
                     // e.g. $handle->bindValue(1, 100, PDO::PARAM_INT);
                     // but  $handle->bindValue(2, 'Bilbo Baggins');
-                    $db_handle->bindValue(1,$requested_table);
-                    $i = 2;
-                    foreach($fields_lists[$requested_table] as $field) {
-                        $db_handle->bindValue($i, $field);
-                        $i += 1;
-                    }
+                    //$db_handle->bindValue(1,$requested_table);
                     
                     // I *think* the values set above stay bound?
                     // So now we just need to alter and rebind the values we pick up from the CSV file.
@@ -154,12 +173,19 @@ HEREDOC;
                     $csv_handle = fopen($file_name,'r');
                     $rows_added = 0;
                     while ( ($csv_data = fgetcsv($csv_handle) ) !== FALSE ) {
-                        $j = $i; // $i still contains where the column names finished
+                        if ($rows_added == 0) {
+                          $rows_added += 1; // Skip the CSV label row.
+                          continue;
+                        }
+                        $j = 1; 
                         foreach($csv_data as $csv_value) {
-                            $db_handle->bindValue($j, $csv_data);
+                            if ($csv_value == '') $csv_value = NULL;
+                            $db_handle->bindValue($j, $csv_value);
                             $j += 1;
                         }
-                        $db_handle->execute(); // You might want to wrap this in a try/catch
+                        $csv_data_as_string = implode(',', $csv_data);
+                        echo "\n<p>Debug: Current CSV Data: {$csv_data_as_string}</p>\n";
+                        $db_handle->execute(); // You might want to wrap this in a separate try/catch
                         $rows_added += 1;
                     }
                     fclose($csv_handle);
@@ -170,8 +196,7 @@ HEREDOC;
 
                 }
                 catch(\PDOException $ex){
-                    print($ex->getMessage());
-                    echo "\n<p>Failed to connect to database.</p>\n";
+                  print("\n<p>" . $ex->getMessage() . "</p>\n");
                 }
             } else {
                 $body_content =  "<p>Invalid file -- file must be a text CSV file with the .csv extension, under 200 kiB in size.</p>\n";
