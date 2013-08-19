@@ -164,7 +164,6 @@ HEREDOC;
                     // If you're not sure whether the value you're passing is an integer, use the is_int() function.
                     // e.g. $handle->bindValue(1, 100, PDO::PARAM_INT);
                     // but  $handle->bindValue(2, 'Bilbo Baggins');
-                    //$db_handle->bindValue(1,$requested_table);
                     
                     // I *think* the values set above stay bound?
                     // So now we just need to alter and rebind the values we pick up from the CSV file.
@@ -183,7 +182,7 @@ HEREDOC;
                             $db_handle->bindValue($j, $csv_value);
                             $j += 1;
                         }
-                        $csv_data_as_string = implode(',', $csv_data);
+                        $csv_data_as_string = implode(' || ', $csv_data);
                         echo "\n<p>Debug: Current CSV Data: {$csv_data_as_string}</p>\n";
                         $db_handle->execute(); // You might want to wrap this in a separate try/catch
                         $rows_added += 1;
