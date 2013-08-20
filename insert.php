@@ -13,14 +13,41 @@
     
     // Creates the upload form from the above.
     $table_options = "";
+    $table_inputs = "";
+    $js_table_array = "{";
     foreach ($table_list as $table_name) {
-        $table_options .= "<option value=\"{$table_name}\">{$table_name}</option>\n                    ";
+        $table_options .= "<option value=\"{$table_name}\" id=\"table_selector\" onchange=\"showOneForm();\">{$table_name}</option>\n                    ";
+        $table_forms   .= "<div id=\"{$table_name}\" style=\"visibility: hidden;display: none;\">" .
+                          "<h5>Manual Input for table \"{$table_name}\":</h5>" .
+                          "<br />";
+        foreach ($fields_lists[$table_name] as $column_name) {
+            $table_forms .= "<label for=\"$column_name\"><input type=\"text\" default=\"NULL\" name=\"form_data['{$table_name}']\">";
+        }
+        $table_forms .= "</div>\n";
+        $js_table_array .= " \"{$table_name}\", ";
     }
+    $js_table_array .= "}";
 
     $post_form = <<<HEREDOC
         <p>
             <form action="csv_insert.php" method="post"
-              enctype="multipart/form-data">
+              enctype="multipart/form-data"
+              id="input_form">
+                <script>
+                  function showOneForm() {
+                    var f = document.getElementById("table_selector");
+                    var g = document.getElementById(f.value);
+                    var table_array = {$js_table_array};
+                    for (var i = 0; i < table_array.length; i++) {
+                        var j = document.getElementById(table_array[i]);
+                        j.style.visibility="hidden";
+                        j.style.display="none";
+                    }
+                    g.style.visibility="visible";
+                    g.style.display="inline";
+                  }
+                </script>
+                <h5>Select a table to change available column fields.</h5>
                 <label for="file">Filename:</label><input type="file" name="file" id="file" /><br />
                 <label for="table">Table:</label>
                 <select name="table">
@@ -28,6 +55,12 @@
                 </select>
                 <br />
                 <input type="submit" name="submit" value="Submit File" />
+                <br />
+                <br />
+                <hr />
+                {$table_forms}
+                <br />
+                <input type="submit" name="submit" value="Submit Manual Input" />
             </form>
         </p>
 
@@ -199,7 +232,7 @@ HEREDOC;
             $source = $file;
         } else {
             $file = FALSE;
-            $source = new FormCSVSource($_POST['form_data']); 
+            $source = new FormCSVSource($_POST['form_data'][$requested_table]); 
         }
 
         if ( ($file != FALSE ) &&
