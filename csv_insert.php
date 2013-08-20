@@ -27,17 +27,17 @@
                     {$table_options}
                 </select>
                 <br />
-                <input type="submit" name="submit" value="Submit" />
+                <input type="submit" name="submit" value="Submit File" />
             </form>
         </p>
 
 HEREDOC;
     
+    // Treat an empty file upload as an error.
+    define("UPLOAD_ERR_EMPTY",5);
+    define("UPLOAD_ERR_TOO_LARGE",6);
+    define("UPLOAD_ERR_DISALLOWED_TYPE",7);
     class UploadedFile {
-        // Treat an empty file upload as an error.
-        define("UPLOAD_ERR_EMPTY",5);
-        define("UPLOAD_ERR_TOO_LARGE",6);
-        define("UPLOAD_ERR_DISALLOWED_TYPE",7);
         
         private $original_file_name;
         private $current_name;
@@ -45,14 +45,16 @@ HEREDOC;
         private $file_size;
         private $file_error_val;
         private $file_handle;
+        private $on_first_line;
          
-        public function __construct( afile ) {
+        public function __construct( $afile ) {
             $this->original_file_name = $afile['name'];
             $this->current_name   = $afile['tmp_name'];
             $this->file_type      = $afile['type'];
             $this->file_size      = $afile['size'];
             $this->file_error_val = $afile['error'];
             $this->file_handle    = 0;
+            $this->on_first_line  = TRUE; 
         }
         
         public function original_file_name() {
@@ -84,10 +86,16 @@ HEREDOC;
             $this->close();
         }
         
-        public function get_csv_dataline() {
+        public function get_dataline() {
             ini_set('auto_detect_line_endings',TRUE);
             $file = $this->get_handle();
-            $return_val = fgetcsv($file);
+            $return_val = fgetcsv($file); //File handle stores position state
+            
+            if ($this->on_first_line == TRUE) { // Skip the first line, since it contains column labels
+                $return_val = fgetcsv($file);
+                $this->on_first_line = FALSE;
+            }
+            
             if ($return_val == FALSE) {
                 $this->close();
             }
@@ -125,7 +133,10 @@ HEREDOC;
             return $file_error_val;                
         }
         
-        public function upload_error_string(code = $this->$file_error_val) {
+        public function upload_error_string($code = NULL) {
+            if ($code == NULL) {
+                $code = $this->$file_error_val;
+            }
             $upload_errors = array( 
                         UPLOAD_ERR_OK         => "No errors.", 
                         UPLOAD_ERR_INI_SIZE   => "File was larger than upload_max_filesize set in the php.ini file.", 
@@ -139,10 +150,32 @@ HEREDOC;
                         UPLOAD_ERR_TOO_LARGE  => "The file uploaded was larger than this script allows.",
                         UPLOAD_ERR_DISALLOWED_TYPE => "The file uploaded was of a type not allowed by this script.",
                     );
-            return $upload_errors[code];
+            return $upload_errors[$code];
         }
     } // End of UploadedFile class
-    
+
+    // This is mostly to match abstract data access with the UploadedFile get_dataline method
+    // This is just to handle a single line's worth
+    class FormCSVSource {
+        private $data_array;
+        private $has_remaining_data;
+
+        public function __construct( $data_source ) {
+            $this->data_array = $data_source;
+            $this->has_remaining_data = TRUE;
+        }
+
+        public function get_dataline() {
+            if ($this->has_remaining_data == TRUE) {
+                $this->has_remaining_data = FALSE;
+                return $this->data_array;
+            } else {
+                return FALSE;
+            }
+        }
+    } // End of FormCSVSource class
+
+
     
     // Start request logic
 
@@ -159,19 +192,25 @@ HEREDOC;
         
         $requested_table = $_POST['table'];
         
+        if ( ($_POST['submit'] == "Submit File") &&
+             (isset($_FILES['file'])           ) )  
+        {
+            $file = new UploadedFile($_FILES["file"]);
+            $source = $file;
+        } else {
+            $file = FALSE;
+            $source = new FormCSVSource($_POST['form_data']); 
+        }
 
-        $file = new UploadedFile($_FILES["file"]);
-
-        if ( $file->is_invalid() != 0 ) {
+        if ( ($file != FALSE ) &&
+             ($file->is_invalid() != 0 ) ) 
+        {
             $body_content =  "<p>{$file->upload_error_string()}</p>\n";
             $body_content .= "<p>You may wish to try again, or attempt to remedy the problem.</p>\n";
             $body_content .= $post_form;
         } 
         else
         {
-            // The file appears to be valid and present, so do stuff with it.
-            $file_name = $file['tmp_name'];
-            
             // PDO code from https://phpbestpractices.org/
             try{
                 // Create a new connection.
@@ -212,20 +251,16 @@ HEREDOC;
                 // but  $handle->bindValue(2, 'Bilbo Baggins');
                 
 
-                $rows_added = -1;
-                while ( ($csv_data = $file->get_csv_dataline() ) !== FALSE ) {
-                    if ($rows_added == -1) {
-                      $rows_added += 1; // Skip the CSV label row.
-                      continue;
-                    }
+                $rows_added = 0;
+                while ( ($data = $source->get_dataline() ) !== FALSE ) {
                     $j = 1; 
-                    foreach($csv_data as $csv_value) {
-                        if ($csv_value == '') $csv_value = NULL;
-                        $db_handle->bindValue($j, $csv_value);
+                    foreach($data as $element) {
+                        if ($element == '') $element = NULL;
+                        $db_handle->bindValue($j, $element);
                         $j += 1;
                     }
-                    $csv_data_as_string = implode(' || ', $csv_data);
-                    echo "\n<p>Current CSV Data: {$csv_data_as_string}</p>\n";
+                    $data_as_string = implode(' || ', $data);
+                    echo "\n<p>Current CSV Data: {$data_as_string}</p>\n";
                     
                     $execute_result = $db_handle->execute();
                     if ( $execute_result == FALSE ) {
@@ -235,8 +270,12 @@ HEREDOC;
                     }
                 }
                 
-                $source = $file->original_file_name();
-                $body_content = "<p>Added {$rows_added} rows from {$source} to the '{$requested_table}' table, in the database {$my_db_name} on {$my_db_hostname}.</p>\n";
+                if ($file != FALSE) {
+                    $source_name = $file->original_file_name();
+                } else {
+                    $source_name = "form input";
+                }
+                $body_content = "<p>Added {$rows_added} rows from {$source_name} to the '{$requested_table}' table, in the database {$my_db_name} on {$my_db_hostname}.</p>\n";
                 $body_content .= "<p>You may now add another file (note the table selector may have reset):</p>\n";
                 $body_content .= $post_form;
 
