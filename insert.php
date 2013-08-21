@@ -14,23 +14,24 @@
     // Creates the upload form from the above.
     $table_options = "";
     $table_inputs = "";
-    $js_table_array = "{";
+    $js_table_array = "[";
     foreach ($table_list as $table_name) {
-        $table_options .= "<option value=\"{$table_name}\" id=\"table_selector\" onchange=\"showOneForm();\">{$table_name}</option>\n                    ";
-        $table_forms   .= "<div id=\"{$table_name}\" style=\"visibility: hidden;display: none;\">" .
-                          "<h5>Manual Input for table \"{$table_name}\":</h5>" .
-                          "<br />";
+        $table_options .= "<option value=\"{$table_name}\">{$table_name}</option>\n                    ";
+        $table_forms   .= "<div id=\"{$table_name}\" style=\"visibility: hidden;display: none;\">\n" .
+                          "<h5>Manual Input for table \"{$table_name}\":</h5>\n" .
+                          "<br />\n";
         foreach ($fields_lists[$table_name] as $column_name) {
-            $table_forms .= "<label for=\"$column_name\"><input type=\"text\" default=\"NULL\" name=\"form_data['{$table_name}']\">";
+          $table_forms .= "<label for=\"$column_name\">$column_name</label>\n" .
+                          "<input type=\"text\" default=\"NULL\" name=\"form_data[{$table_name}][{$column_name}]\"><br />\n";
         }
         $table_forms .= "</div>\n";
         $js_table_array .= " \"{$table_name}\", ";
     }
-    $js_table_array .= "}";
+    $js_table_array .= "]";
 
     $post_form = <<<HEREDOC
         <p>
-            <form action="csv_insert.php" method="post"
+            <form action="insert.php" method="post"
               enctype="multipart/form-data"
               id="input_form">
                 <script>
@@ -50,7 +51,7 @@
                 <h5>Select a table to change available column fields.</h5>
                 <label for="file">Filename:</label><input type="file" name="file" id="file" /><br />
                 <label for="table">Table:</label>
-                <select name="table">
+                <select name="table" id="table_selector" onchange="showOneForm();">
                     {$table_options}
                 </select>
                 <br />
@@ -61,6 +62,9 @@
                 {$table_forms}
                 <br />
                 <input type="submit" name="submit" value="Submit Manual Input" />
+                <script>
+                    showOneForm();
+                </script>
             </form>
         </p>
 
@@ -131,6 +135,8 @@ HEREDOC;
             
             if ($return_val == FALSE) {
                 $this->close();
+            } else {
+                array_shift($return_val); // The first element is an ID which MySQL gens automatically, so remove it
             }
             return $return_val;
         }
@@ -153,8 +159,8 @@ HEREDOC;
                 $this->file_error_val = UPLOAD_ERR_EMPTY;
             }
             
-            if ( not ( in_array($file_type,      $allowed_file_types) &&
-                       in_array($file_extension, $allowed_file_extensions) ))
+            if ( ! ( in_array($file_type,      $allowed_file_types) &&
+                     in_array($file_extension, $allowed_file_extensions) ))
             {
                 $this->file_error_val = UPLOAD_ERR_DISALLOWED_TYPE;
             }
@@ -232,6 +238,9 @@ HEREDOC;
             $source = $file;
         } else {
             $file = FALSE;
+            foreach ($_POST['form_data'][$requested_table] as $form_element_name => $form_element_value) {
+              echo "<p>({$form_element_name}:{$form_element_value})</p>";
+            }
             $source = new FormCSVSource($_POST['form_data'][$requested_table]); 
         }
 
@@ -274,7 +283,7 @@ HEREDOC;
                 // My danger sense says not to put $requested_table into a string here just as-is, but oh well.
                 $statement_string = "INSERT INTO {$requested_table} (" . $table_fields_string . 
                                     ') VALUES ( ' . $value_placeholders . ')';
-                echo "Debug: \$statement_string: {$statement_string}\n";
+                //echo "Debug: \$statement_string: {$statement_string}\n";
                 $db_handle = $link->prepare($statement_string);
              
                 // PHP bug: if you don't specify PDO::PARAM_INT, PDO may enclose the argument in quotes.  This can mess up some MySQL queries that don't expect integers to be quoted.
@@ -293,7 +302,7 @@ HEREDOC;
                         $j += 1;
                     }
                     $data_as_string = implode(' || ', $data);
-                    echo "\n<p>Current CSV Data: {$data_as_string}</p>\n";
+                    echo "\n<p>Current Data Line: {$data_as_string}</p>\n";
                     
                     $execute_result = $db_handle->execute();
                     if ( $execute_result == FALSE ) {
@@ -309,7 +318,7 @@ HEREDOC;
                     $source_name = "form input";
                 }
                 $body_content = "<p>Added {$rows_added} rows from {$source_name} to the '{$requested_table}' table, in the database {$my_db_name} on {$my_db_hostname}.</p>\n";
-                $body_content .= "<p>You may now add another file (note the table selector may have reset):</p>\n";
+                $body_content .= "<p>You may now add more data (note the table selector may have reset):</p>\n";
                 $body_content .= $post_form;
 
             }
