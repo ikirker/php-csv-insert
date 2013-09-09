@@ -45,3 +45,9 @@ textarea {
     resize: vertical;
 }
 
+td {
+  margin: 0px;
+  padding: 0px;
+  border-top: solid gray 1px;
+}
+
