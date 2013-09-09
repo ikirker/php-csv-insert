@@ -4,6 +4,7 @@
 
     include("db_settings.php");
 
+    $strip_id_fields = TRUE;
     include("schema.php");
     $fields_lists = $fields_lists;
     $table_list   = $table_list;
