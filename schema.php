@@ -25,11 +25,13 @@
       "Source"        => array("SourceID", "SourceTypeID", "SourceName", "AuthSurname", "AuthFName", "SourceYear", "SourcePlPub", "SourcePub", "SourceLocation", "Comments"),
       "SourceType"    => array("SourceTypeID", "SourceTypeName"),
     );
-    
-    // ID fields autoincrement, so remove them.
-    foreach ($fields_lists as $key => $value) {
-      array_shift($fields_lists[$key]);
-    } 
+
+    if ($strip_id_fields == TRUE) {
+      // ID fields autoincrement, so remove them.
+      foreach ($fields_lists as $key => $value) {
+        array_shift($fields_lists[$key]);
+      } 
+    }
 
     $table_list = array_keys($fields_lists);
     
