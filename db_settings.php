@@ -4,7 +4,7 @@
 
     $settings = "ian-testing";
 
-    if ($settings = "chris-remote") {
+    if ($settings == "chris-remote") {
       $my_db_hostname = "mysql-server.ucl.ac.uk";
       $my_db_name     = "ucqacpo";
       $my_db_port     = "3306";
