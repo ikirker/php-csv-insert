@@ -22,6 +22,8 @@
                                "EventDescription", "SourceID", "SourcePageRef",
                                "Comments"),
       "EventType"     => array("EventTypeID", "EventTypeName"),
+      "Source"        => array("SourceID", "SourceTypeID", "SourceName", "AuthSurname", "AuthFName", "SourceYear", "SourcePlPub", "SourcePub", "SourceLocation", "Comments"),
+      "SourceType"    => array("SourceTypeID", "SourceTypeName"),
     );
     
     // ID fields autoincrement, so remove them.
