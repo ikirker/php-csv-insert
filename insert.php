@@ -298,8 +298,13 @@ HEREDOC;
                 while ( ($data = $source->get_dataline() ) !== FALSE ) {
                     $j = 1; 
                     foreach($data as $element) {
+                        if ($j >= count($table_fields)) { break; } // This shouldn't happen with a well-prepared CSV, but...
                         if ($element == '') $element = NULL;
-                        $db_handle->bindValue($j, $element);
+                        if (is_int($element)) {
+                            $db_handle->bindValue($j, $element, PDO::PARAM_INT);
+                        } else {
+                            $db_handle->bindValue($j, $element);
+                        }
                         $j += 1;
                     }
                     $data_as_string = implode(' || ', $data);
