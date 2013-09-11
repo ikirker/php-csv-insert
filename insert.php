@@ -298,7 +298,7 @@ HEREDOC;
                 while ( ($data = $source->get_dataline() ) !== FALSE ) {
                     $j = 1; 
                     foreach($data as $element) {
-                        if ($j >= count($table_fields)) { break; } // This shouldn't happen with a well-prepared CSV, but...
+                        if ($j > count($table_fields)) { break; } // This shouldn't happen with a well-prepared CSV, but...
                         if ($element == '') $element = NULL;
                         if (is_int($element)) {
                             $db_handle->bindValue($j, $element, PDO::PARAM_INT);
