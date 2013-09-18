@@ -18,7 +18,8 @@
     foreach ($table_list as $table_name) {
         $table_options .= "<option value=\"{$table_name}\">{$table_name}</option>\n                    ";
         $table_forms   .= "<div id=\"{$table_name}\" style=\"visibility: hidden;display: none;\">\n" .
-                          "<h5>Manual Input for table \"{$table_name}\":</h5>\n" .
+                          "<h5>Manual Input for table \"{$table_name}\":</h5>\n" . 
+                          "<p><em><small>Leave the primary key field blank to autoincrement.</small></em></p>\n" .
                           "<br />\n";
         foreach ($fields_lists[$table_name] as $column_name) {
           $table_forms .= "<label for=\"$column_name\">$column_name</label>\n" .
