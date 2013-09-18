@@ -30,7 +30,6 @@
         $imploded_results = array();
         foreach ($results as $result) {
           array_push($imploded_results, array($result[0], implode(" || ", array_slice($result, 1))));
-          echo "<!-- Imploded! " . $result[0] . ";" . implode(" || ", array_slice($result, 1)) . " -->";
         }
         return $imploded_results;
       }
@@ -288,9 +287,9 @@ HEREDOC;
             $source = $file;
         } else {
             $file = FALSE;
-            foreach ($_POST['form_data'][$requested_table] as $form_element_name => $form_element_value) {
+            /*foreach ($_POST['form_data'][$requested_table] as $form_element_name => $form_element_value) {
               echo "<p>({$form_element_name}:{$form_element_value})</p>";
-            }
+            }*/
             $source = new FormCSVSource($_POST['form_data'][$requested_table]); 
         }
 
