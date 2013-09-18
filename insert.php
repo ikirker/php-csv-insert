@@ -10,8 +10,39 @@
     // Just to remind you what's defined in the file above.
 
     // Nothing lower than this covers specifics.
-    
-    // Creates the upload form from the above.
+
+    // Gets fkey lists for dropdowns. Not that pretty, but generic.
+    function get_fkey_elements($table_name) {
+      global $my_db_hostname, $my_db_port, $my_db_name, $my_db_username, $my_db_password;
+      try{
+        $link = new \PDO(   "mysql:host={$my_db_hostname};por={$my_db_port};dbname={$my_db_name}",
+                            $my_db_username,
+                            $my_db_password, 
+                            array(
+                                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, 
+                                \PDO::ATTR_PERSISTENT => false, 
+                                \PDO::MYSQL_ATTR_INIT_COMMAND => 'set names utf8mb4'
+                            )
+                          );
+        $handle = $link->prepare("select * from {$table_name};");
+        $handle->execute();
+        $results = $handle->fetchAll(\PDO::FETCH_NUM);
+        $imploded_results = array();
+        foreach ($results as $result) {
+          array_push($imploded_results, array($result[0], implode(" || ", array_slice($result, 1))));
+          echo "<!-- Imploded! " . $result[0] . ";" . implode(" || ", array_slice($result, 1)) . " -->";
+        }
+        return $imploded_results;
+      }
+      catch(\PDOException $ex){
+        print($ex->getMessage());
+        return False;
+      }
+
+
+    }
+
+    // Creates the upload form from the schema.
     $table_options = "";
     $table_inputs = "";
     $js_table_array = "[";
@@ -21,9 +52,29 @@
                           "<h5>Manual Input for table \"{$table_name}\":</h5>\n" . 
                           "<p><em><small>Leave the primary key field blank to autoincrement.</small></em></p>\n" .
                           "<br />\n";
+        $i = 0;
         foreach ($fields_lists[$table_name] as $column_name) {
-          $table_forms .= "<label for=\"$column_name\">$column_name</label>\n" .
-                          "<input type=\"text\" default=\"NULL\" name=\"form_data[{$table_name}][{$column_name}]\"><br />\n";
+          $fkeys = array();
+          if ( ($i != 0) and (substr($column_name,-2) == "ID") ) {
+            $fkeys = get_fkey_elements(substr($column_name,0,-2));
+          } else {
+            $fkeys = False;
+          }
+
+          if ($fkeys != False) {
+            $table_forms .= "<label for=\"$column_name\">$column_name</label>\n" .
+                            "<select name=\"form_data[{$table_name}][{$column_name}]\">\n";
+            foreach ($fkeys as $fkey) {
+              $table_forms .= "  <option value=\"{$fkey[0]}\">{$fkey[1]}</option>\n";
+            }
+            $table_forms .= "</select><br />\n";
+          } else {
+            echo "<!-- ". $fkeys . " -->";
+            $table_forms .= "<label for=\"$column_name\">$column_name</label>\n" .
+                            "<input type=\"text\" default=\"NULL\" " .
+                            "name=\"form_data[{$table_name}][{$column_name}]\"><br />\n";
+          }
+          $i+=1;
         }
         $table_forms .= "</div>\n";
         $js_table_array .= " \"{$table_name}\", ";
