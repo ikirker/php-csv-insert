@@ -4,7 +4,6 @@
 
     include("db_settings.php");
 
-    $strip_id_fields = TRUE;
     include("schema.php");
     $fields_lists = $fields_lists;
     $table_list   = $table_list;
@@ -136,9 +135,7 @@ HEREDOC;
             
             if ($return_val == FALSE) {
                 $this->close();
-            } else {
-                array_shift($return_val); // The first element is an ID which MySQL gens automatically, so remove it
-            }
+            } 
             return $return_val;
         }
         
@@ -282,7 +279,8 @@ HEREDOC;
                 $value_placeholders = implode(',', array_fill(0, count($fields_lists[$requested_table]), '?'));
                 
                 // My danger sense says not to put $requested_table into a string here just as-is, but oh well.
-                $statement_string = "INSERT INTO {$requested_table} (" . $table_fields_string . 
+                // See https://mariadb.com/kb/en/replace/ for REPLACE info. So handy.
+                $statement_string = "REPLACE INTO {$requested_table} (" . $table_fields_string . 
                                     ') VALUES ( ' . $value_placeholders . ')';
                 //echo "Debug: \$statement_string: {$statement_string}\n";
                 $db_handle = $link->prepare($statement_string);

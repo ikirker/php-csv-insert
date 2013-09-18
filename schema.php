@@ -26,12 +26,6 @@
       "SourceType"    => array("SourceTypeID", "SourceTypeName"),
     );
 
-    if ($strip_id_fields == TRUE) {
-      // ID fields autoincrement, so remove them.
-      foreach ($fields_lists as $key => $value) {
-        array_shift($fields_lists[$key]);
-      } 
-    }
 
     $table_list = array_keys($fields_lists);
     
