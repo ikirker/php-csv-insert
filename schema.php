@@ -8,7 +8,7 @@
       "Location"      => array("LocationID", "XCoordinate", "YCoordinate"),
       "CompanyVenue"  => array("UID", "CompanyID", "VenueID", "RoleDescription", 
                                "RoleTypeID", "RoleStartDate", "SourceID", 
-                               "SourcePageRed", "Comments"),
+                               "SourcePageRef", "Comments"),
       "Company"       => array("CompanyID", "CompanyName", 
                                "CompanyDescription", "Comments"),
       "PersonVenue"   => array("UID", "PersonID", "VenueID", "RoleDescription",
