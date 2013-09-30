@@ -1,4 +1,4 @@
-php-csv-insert
+php-db-insert
 ==============
 
 A basic PHP script for inserting CSV or manually entered form data into a MySQL db.
